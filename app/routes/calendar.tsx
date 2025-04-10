@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import {
   addDays,
   format,
@@ -12,8 +13,21 @@ import { useState } from "react";
 import { cn } from "~/lib/utils";
 import { CalendarIcon, X } from "lucide-react";
 
-const mockData = [
-  // Simple events
+type Event = {
+  name: string;
+  type: number;
+  from: string;
+  to: string;
+  createdAt: string;
+};
+
+type Position = Event & {
+  left: number;
+  width: number;
+  zIndex: number;
+};
+
+const mockData: Event[] = [
   {
     name: "Simple #1",
     type: 1,
@@ -137,26 +151,29 @@ const mockData = [
   },
 ];
 
-const getOverlappingClusters = (events) => {
+const getOverlappingClusters = (events: Event[]) => {
   const sorted = [...events].sort((a, b) => {
     const aStart = new Date(a.from);
     const bStart = new Date(b.from);
-    return aStart - bStart || new Date(b.createdAt) - new Date(a.createdAt);
+    return (
+      aStart.getTime() - bStart.getTime() ||
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
   });
 
-  const clusters = [];
+  const clusters: any[] = [];
 
   sorted.forEach((event) => {
     let added = false;
     for (let cluster of clusters) {
       if (
-        cluster.some(
-          (e) =>
-            new Date(e.from) < new Date(event.to) &&
-            new Date(event.from) < new Date(e.to)
+        cluster?.some(
+          (e: Event) =>
+            new Date(e?.from || "") < new Date(event.to) &&
+            new Date(event.from) < new Date(e?.to || "")
         )
       ) {
-        cluster.push(event);
+        cluster?.push(event);
         added = true;
         break;
       }
@@ -167,8 +184,8 @@ const getOverlappingClusters = (events) => {
   return clusters;
 };
 
-const assignLayout = (cluster) => {
-  const positioned = [];
+const assignLayout = (cluster: Event[]) => {
+  const positioned: Position[] = [];
   cluster.forEach((event) => {
     const overlapping = positioned.filter(
       (e) =>
@@ -187,7 +204,7 @@ export default function Calendar() {
   const [currentWeekStart, setCurrentWeekStart] = useState(
     startOfWeek(new Date(), { weekStartsOn: 1 })
   );
-  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
   const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`);
   const days = Array.from({ length: 7 }).map((_, index) =>
@@ -197,7 +214,7 @@ export default function Calendar() {
   const handleNextWeek = () => setCurrentWeekStart((prev) => addWeeks(prev, 1));
   const handlePrevWeek = () => setCurrentWeekStart((prev) => subWeeks(prev, 1));
   const closeModal = () => setSelectedEvent(null);
-  const handleEventClick = (event) => setSelectedEvent(event);
+  const handleEventClick = (event: Position) => setSelectedEvent(event);
 
   const colorMap = {
     1: "#4B99D2",
@@ -264,14 +281,14 @@ export default function Calendar() {
       )}
 
       {/* Header */}
-      <div className="grid grid-cols-[56px_repeat(7,1fr)] border-b text-sm font-medium">
+      <div className="grid grid-cols-[56px_repeat(7,1fr)] text-sm font-medium">
         <div className="bg-background px-2 py-2 text-muted-foreground text-xs">
           &nbsp;
         </div>
         {days.map((day) => (
           <div
             key={day.toISOString()}
-            className="text-center py-2 border-l bg-background"
+            className="text-center py-2 border-l border-[#333537] bg-background"
           >
             <div className="uppercase text-[11px] text-[#c4c7c5] font-medium leading-[32px]">
               {format(day, "EEE")}
@@ -286,10 +303,12 @@ export default function Calendar() {
       {/* Calendar grid */}
       <div className="grid grid-cols-[56px_repeat(7,1fr)] divide-x overflow-auto">
         {/* Time Labels */}
-        <div className="flex flex-col border-r text-xs text-muted-foreground">
+        <div className="flex flex-col text-xs text-muted-foreground">
           {hours.map((hour) => (
-            <div key={hour} className="h-12 px-2 pt-1">
-              {hour}
+            <div key={hour} className="h-12 px-2 pt-1 text-right">
+              <span className="text-[#c4c7c5] text-[11px] font-medium leading-4">
+                {hour}
+              </span>
             </div>
           ))}
         </div>
@@ -309,12 +328,12 @@ export default function Calendar() {
           return (
             <div
               key={day.toISOString()}
-              className="relative h-full w-full border-l"
+              className="relative h-full w-full border-l border-[#333537]"
             >
               {Array.from({ length: 24 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-12 border-t border-muted hover:bg-muted/50 transition"
+                  className="h-12 border-t border-[#333537] border-muted hover:bg-muted/50 transition"
                 />
               ))}
 
@@ -333,7 +352,8 @@ export default function Calendar() {
                     (displayStart.getHours() * 60 + displayStart.getMinutes()) *
                     (48 / 60);
                   const height =
-                    ((displayEnd - displayStart) / 60000) * (48 / 60);
+                    ((displayEnd.getTime() - displayStart.getTime()) / 60000) *
+                    (48 / 60);
 
                   return (
                     <div
@@ -350,7 +370,9 @@ export default function Calendar() {
                     >
                       <div
                         className="text-xs text-white p-1 rounded-md shadow-md h-full overflow-hidden flex items-start gap-1 border border-white/20 shadow-lg"
-                        style={{ backgroundColor: colorMap[event.type] }}
+                        style={{
+                          backgroundColor: colorMap[event.type as 1 | 2 | 3],
+                        }}
                       >
                         <CalendarIcon className="w-3 h-3 mt-[2px] shrink-0" />
                         <span className="truncate font-medium leading-tight">
