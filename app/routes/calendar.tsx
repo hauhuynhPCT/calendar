@@ -5,128 +5,182 @@ import {
   addWeeks,
   subWeeks,
   isToday,
+  isBefore,
+  isAfter,
 } from "date-fns";
 import { useState } from "react";
 import { cn } from "~/lib/utils";
 import { CalendarIcon, X } from "lucide-react";
 
 const mockData = [
+  // Simple events
   {
-    name: "pitch #1",
+    name: "Simple #1",
+    type: 1,
+    from: "2025-04-09T08:00:00",
+    to: "2025-04-09T09:00:00",
+    createdAt: "2025-03-21T09:00:00",
+  },
+
+  // Full overlap
+  {
+    name: "Overlap #1",
     type: 2,
     from: "2025-04-09T10:00:00",
     to: "2025-04-09T11:30:00",
-    createdAt: "2025-03-21T09:23:44",
+    createdAt: "2025-03-22T09:00:00",
   },
   {
-    name: "pitch #2",
-    type: 2,
-    from: "2025-04-09T10:00:00",
-    to: "2025-04-09T11:30:00",
-    createdAt: "2025-03-26T14:55:17",
-  },
-  {
-    name: "pitch #4",
-    type: 1,
-    from: "2025-04-09T09:00:00",
-    to: "2025-04-09T10:00:00",
-    createdAt: "2025-03-18T11:41:33",
-  },
-  {
-    name: "pitch #5",
-    type: 1,
-    from: "2025-04-09T09:00:00",
-    to: "2025-04-09T10:00:00",
-    createdAt: "2025-03-27T08:11:09",
-  },
-  {
-    name: "pitch #6",
-    type: 1,
-    from: "2025-04-09T09:00:00",
-    to: "2025-04-09T10:00:00",
-    createdAt: "2025-03-30T16:37:01",
-  },
-  {
-    name: "pitch #7",
-    type: 1,
-    from: "2025-04-09T10:00:00",
-    to: "2025-04-09T11:30:00",
-    createdAt: "2025-03-25T12:03:29",
-  },
-  {
-    name: "pitch #8",
+    name: "Overlap #2",
     type: 3,
-    from: "2025-04-09T15:00:00",
-    to: "2025-04-09T16:30:00",
-    createdAt: "2025-03-20T17:29:12",
+    from: "2025-04-09T10:00:00",
+    to: "2025-04-09T11:30:00",
+    createdAt: "2025-03-23T09:00:00",
+  },
+
+  // Partial overlap
+  {
+    name: "Partial A",
+    type: 1,
+    from: "2025-04-09T11:00:00",
+    to: "2025-04-09T12:00:00",
+    createdAt: "2025-03-24T09:00:00",
   },
   {
-    name: "pitch #9",
+    name: "Partial B",
     type: 2,
+    from: "2025-04-09T11:30:00",
+    to: "2025-04-09T12:30:00",
+    createdAt: "2025-03-24T09:10:00",
+  },
+
+  // Nesting
+  {
+    name: "Parent",
+    type: 3,
     from: "2025-04-09T13:00:00",
     to: "2025-04-09T15:00:00",
-    createdAt: "2025-03-24T10:12:00",
+    createdAt: "2025-03-25T09:00:00",
   },
   {
-    name: "pitch #10",
-    type: 3,
-    from: "2025-04-09T13:00:00",
-    to: "2025-04-09T13:30:00",
-    createdAt: "2025-03-20T15:44:20",
-  },
-  {
-    name: "pitch #11",
-    type: 2,
-    from: "2025-04-09T13:15:00",
+    name: "Child A",
+    type: 1,
+    from: "2025-04-09T13:30:00",
     to: "2025-04-09T14:00:00",
-    createdAt: "2025-03-22T09:30:11",
+    createdAt: "2025-03-25T09:10:00",
   },
   {
-    name: "pitch #12",
-    type: 1,
+    name: "Child B",
+    type: 2,
     from: "2025-04-09T14:00:00",
-    to: "2025-04-09T15:00:00",
-    createdAt: "2025-03-28T12:20:35",
+    to: "2025-04-09T14:30:00",
+    createdAt: "2025-03-25T09:20:00",
+  },
+
+  // Back-to-back
+  {
+    name: "Back-to-back A",
+    type: 1,
+    from: "2025-04-09T15:00:00",
+    to: "2025-04-09T15:30:00",
+    createdAt: "2025-03-26T09:00:00",
   },
   {
-    name: "pitch #13",
+    name: "Back-to-back B",
+    type: 1,
+    from: "2025-04-09T15:30:00",
+    to: "2025-04-09T16:00:00",
+    createdAt: "2025-03-26T09:01:00",
+  },
+
+  // Very short event
+  {
+    name: "Quick 5m",
+    type: 2,
+    from: "2025-04-09T17:00:00",
+    to: "2025-04-09T17:05:00",
+    createdAt: "2025-03-26T10:00:00",
+  },
+
+  // Multi-hour
+  {
+    name: "Long Meeting",
     type: 3,
-    from: "2025-04-09T15:00:00",
-    to: "2025-04-09T17:30:00",
-    createdAt: "2025-03-29T18:45:00",
+    from: "2025-04-09T18:00:00",
+    to: "2025-04-09T21:00:00",
+    createdAt: "2025-03-26T11:00:00",
+  },
+
+  // Same start time, diff durations
+  {
+    name: "Same Start A",
+    type: 1,
+    from: "2025-04-09T22:00:00",
+    to: "2025-04-09T22:30:00",
+    createdAt: "2025-03-26T12:00:00",
+  },
+  {
+    name: "Same Start B",
+    type: 2,
+    from: "2025-04-09T22:00:00",
+    to: "2025-04-09T23:30:00",
+    createdAt: "2025-03-26T12:01:00",
+  },
+
+  // Near midnight
+  {
+    name: "Late Night",
+    type: 3,
+    from: "2025-04-09T23:45:00",
+    to: "2025-04-10T00:15:00",
+    createdAt: "2025-03-26T13:00:00",
   },
 ];
 
-const buildEventStack = (events, date) => {
-  const dateStr = date.toISOString().slice(0, 10);
+const getOverlappingClusters = (events) => {
+  const sorted = [...events].sort((a, b) => {
+    const aStart = new Date(a.from);
+    const bStart = new Date(b.from);
+    return aStart - bStart || new Date(b.createdAt) - new Date(a.createdAt);
+  });
 
-  const sameDayEvents = events.filter((e) => e.from.startsWith(dateStr));
+  const clusters = [];
 
-  const stacks = new Map();
-
-  sameDayEvents.forEach((event) => {
-    const key = event.from;
-    if (!stacks.has(key)) {
-      stacks.set(key, []);
+  sorted.forEach((event) => {
+    let added = false;
+    for (let cluster of clusters) {
+      if (
+        cluster.some(
+          (e) =>
+            new Date(e.from) < new Date(event.to) &&
+            new Date(event.from) < new Date(e.to)
+        )
+      ) {
+        cluster.push(event);
+        added = true;
+        break;
+      }
     }
-    stacks.get(key).push(event);
+    if (!added) clusters.push([event]);
   });
 
-  stacks.forEach((stack) => {
-    stack.sort((a, b) => {
-      const endA = new Date(a.to).getTime();
-      const endB = new Date(b.to).getTime();
-      if (endA !== endB) return endB - endA; // reversed order for correct z-index
-      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-    });
-  });
+  return clusters;
+};
 
-  const result = [];
-  stacks.forEach((stack) => {
-    result.push(...stack);
+const assignLayout = (cluster) => {
+  const positioned = [];
+  cluster.forEach((event) => {
+    const overlapping = positioned.filter(
+      (e) =>
+        new Date(e.from) < new Date(event.to) &&
+        new Date(event.from) < new Date(e.to)
+    );
+    const left = overlapping.length * 25;
+    const width = 75 - overlapping.length * 5;
+    const zIndex = overlapping.length + 1;
+    positioned.push({ ...event, left, width, zIndex });
   });
-
-  return result;
+  return positioned;
 };
 
 export default function Calendar() {
@@ -143,10 +197,7 @@ export default function Calendar() {
   const handleNextWeek = () => setCurrentWeekStart((prev) => addWeeks(prev, 1));
   const handlePrevWeek = () => setCurrentWeekStart((prev) => subWeeks(prev, 1));
   const closeModal = () => setSelectedEvent(null);
-
-  const handleEventClick = (event) => {
-    setSelectedEvent(event);
-  };
+  const handleEventClick = (event) => setSelectedEvent(event);
 
   const colorMap = {
     1: "#4B99D2",
@@ -156,6 +207,7 @@ export default function Calendar() {
 
   return (
     <div className="w-full max-w-6xl mx-auto">
+      {/* Navigation */}
       <div className="flex justify-between items-center px-4 py-2 mb-2">
         <button
           onClick={handlePrevWeek}
@@ -184,7 +236,7 @@ export default function Calendar() {
           <div
             className="absolute inset-0 bg-black opacity-0"
             aria-hidden="true"
-          ></div>
+          />
           <div
             className="relative bg-white text-black w-80 p-4 rounded-xl shadow-lg z-50"
             onClick={(e) => e.stopPropagation()}
@@ -211,6 +263,7 @@ export default function Calendar() {
         </div>
       )}
 
+      {/* Header */}
       <div className="grid grid-cols-[56px_repeat(7,1fr)] border-b text-sm font-medium">
         <div className="bg-background px-2 py-2 text-muted-foreground text-xs">
           &nbsp;
@@ -230,7 +283,9 @@ export default function Calendar() {
         ))}
       </div>
 
+      {/* Calendar grid */}
       <div className="grid grid-cols-[56px_repeat(7,1fr)] divide-x overflow-auto">
+        {/* Time Labels */}
         <div className="flex flex-col border-r text-xs text-muted-foreground">
           {hours.map((hour) => (
             <div key={hour} className="h-12 px-2 pt-1">
@@ -239,8 +294,18 @@ export default function Calendar() {
           ))}
         </div>
 
+        {/* Events per day */}
         {days.map((day) => {
-          const eventStack = buildEventStack(mockData, day);
+          const dayStart = day;
+          const dayEnd = addDays(day, 1);
+          const dayEvents = mockData.filter((e) => {
+            const start = new Date(e.from);
+            const end = new Date(e.to);
+            return start < dayEnd && end > dayStart;
+          });
+
+          const clusters = getOverlappingClusters(dayEvents);
+
           return (
             <div
               key={day.toISOString()}
@@ -249,51 +314,52 @@ export default function Calendar() {
               {Array.from({ length: 24 }).map((_, i) => (
                 <div
                   key={i}
-                  className={cn(
-                    "h-12 border-t border-muted hover:bg-muted/50 transition"
-                  )}
-                ></div>
+                  className="h-12 border-t border-muted hover:bg-muted/50 transition"
+                />
               ))}
 
-              {eventStack.map((event, _, arr) => {
-                const start = new Date(event.from);
-                const end = new Date(event.to);
-                const top = (start.getHours() + start.getMinutes() / 60) * 48;
-                const height =
-                  ((end.getTime() - start.getTime()) / (1000 * 60 * 60)) * 48;
+              {clusters.map((cluster) => {
+                const positioned = assignLayout(cluster);
+                return positioned.map((event) => {
+                  const start = new Date(event.from);
+                  const end = new Date(event.to);
 
-                const sameStartEvents = arr.filter(
-                  (e) => e.from === event.from
-                );
-                const colIndex = sameStartEvents.findIndex(
-                  (e) => e.name === event.name
-                );
-                const overlapOffset = 24;
+                  const displayStart = isBefore(start, dayStart)
+                    ? dayStart
+                    : start;
+                  const displayEnd = isAfter(end, dayEnd) ? dayEnd : end;
 
-                return (
-                  <div
-                    key={event.name + event.createdAt}
-                    className="absolute"
-                    style={{
-                      top,
-                      height,
-                      left: `${colIndex * overlapOffset}px`,
-                      right: 0,
-                      zIndex: colIndex + 1,
-                    }}
-                    onClick={() => handleEventClick(event)}
-                  >
+                  const top =
+                    (displayStart.getHours() * 60 + displayStart.getMinutes()) *
+                    (48 / 60);
+                  const height =
+                    ((displayEnd - displayStart) / 60000) * (48 / 60);
+
+                  return (
                     <div
-                      className="text-xs text-white p-1 rounded-md shadow-md h-full overflow-hidden flex items-start gap-1 border border-white/20 shadow-lg"
-                      style={{ backgroundColor: colorMap[event.type] }}
+                      key={event.name + event.createdAt}
+                      className="absolute"
+                      style={{
+                        top,
+                        height,
+                        left: `${event.left}px`,
+                        width: `${event.width}%`,
+                        zIndex: event.zIndex,
+                      }}
+                      onClick={() => handleEventClick(event)}
                     >
-                      <CalendarIcon className="w-3 h-3 mt-[2px] shrink-0" />
-                      <span className="truncate font-medium leading-tight">
-                        {event.name}
-                      </span>
+                      <div
+                        className="text-xs text-white p-1 rounded-md shadow-md h-full overflow-hidden flex items-start gap-1 border border-white/20 shadow-lg"
+                        style={{ backgroundColor: colorMap[event.type] }}
+                      >
+                        <CalendarIcon className="w-3 h-3 mt-[2px] shrink-0" />
+                        <span className="truncate font-medium leading-tight">
+                          {event.name}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                );
+                  );
+                });
               })}
             </div>
           );
