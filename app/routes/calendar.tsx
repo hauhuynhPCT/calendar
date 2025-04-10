@@ -12,6 +12,7 @@ import {
 import { useState } from "react";
 import { cn } from "~/lib/utils";
 import { CalendarIcon, X } from "lucide-react";
+import { Dialog, DialogContent, DialogOverlay } from "~/components/ui/dialog";
 
 type Event = {
   name: string;
@@ -26,6 +27,10 @@ type Position = Event & {
   width: number;
   zIndex: number;
 };
+
+interface EventWithElement extends Event {
+  targetEl: HTMLElement;
+}
 
 const mockData: Event[] = [
   {
@@ -149,6 +154,35 @@ const mockData: Event[] = [
     to: "2025-04-10T00:15:00",
     createdAt: "2025-03-26T13:00:00",
   },
+  //edge case
+  {
+    name: "left top",
+    type: 2,
+    from: "2025-04-07T01:00:00",
+    to: "2025-04-07T02:30:00",
+    createdAt: "2025-03-26T12:01:00",
+  },
+  {
+    name: "left bottom",
+    type: 2,
+    from: "2025-04-07T22:00:00",
+    to: "2025-04-07T23:30:00",
+    createdAt: "2025-03-26T12:01:00",
+  },
+  {
+    name: "right top",
+    type: 2,
+    from: "2025-04-13T01:00:00",
+    to: "2025-04-13T03:30:00",
+    createdAt: "2025-03-26T12:01:00",
+  },
+  {
+    name: "right bottom",
+    type: 2,
+    from: "2025-04-13T23:00:00",
+    to: "2025-04-13T24:00:00",
+    createdAt: "2025-03-26T12:01:00",
+  },
 ];
 
 const getOverlappingClusters = (events: Event[]) => {
@@ -204,7 +238,9 @@ export default function Calendar() {
   const [currentWeekStart, setCurrentWeekStart] = useState(
     startOfWeek(new Date(), { weekStartsOn: 1 })
   );
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<EventWithElement | null>(
+    null
+  );
 
   const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`);
   const days = Array.from({ length: 7 }).map((_, index) =>
@@ -214,7 +250,9 @@ export default function Calendar() {
   const handleNextWeek = () => setCurrentWeekStart((prev) => addWeeks(prev, 1));
   const handlePrevWeek = () => setCurrentWeekStart((prev) => subWeeks(prev, 1));
   const closeModal = () => setSelectedEvent(null);
-  const handleEventClick = (event: Position) => setSelectedEvent(event);
+  const handleEventClick = (event: Event, targetEl: HTMLElement) => {
+    setSelectedEvent({ ...event, targetEl });
+  };
 
   const colorMap = {
     1: "#4B99D2",
@@ -245,40 +283,59 @@ export default function Calendar() {
       </div>
 
       {/* Modal */}
-      {selectedEvent && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          onClick={closeModal}
+      <Dialog
+        open={!!selectedEvent}
+        onOpenChange={(open) => !open && closeModal()}
+      >
+        <DialogContent
+          // className="fixed left-1/2 top-1/2 z-50 p-4 sm:p-6 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 bg-white text-black rounded-xl shadow-xl transition-opacity duration-200 ease-in-out data-[state=open]:opacity-100 data-[state=closed]:opacity-0"
+          style={(() => {
+            if (!selectedEvent?.targetEl || window.innerWidth < 640) return {};
+
+            const rect = selectedEvent.targetEl.getBoundingClientRect();
+            const modalWidth = 300;
+            const margin = 12;
+
+            const fitsRight =
+              rect.right + modalWidth + margin < window.innerWidth;
+            const left = fitsRight
+              ? rect.right + margin
+              : rect.left - modalWidth - margin;
+            const top = Math.max(
+              8,
+              Math.min(rect.top, window.innerHeight - 220)
+            );
+
+            return {
+              // position: "fixed",
+              // width: `${modalWidth}px`,
+              // left: `${left}px`,
+              // top: `${top}px`,
+              // transform: "none",
+            };
+          })()}
         >
-          <div
-            className="absolute inset-0 bg-black opacity-0"
-            aria-hidden="true"
-          />
-          <div
-            className="relative bg-white text-black w-80 p-4 rounded-xl shadow-lg z-50"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              className="absolute top-2 right-2 text-gray-500 hover:text-black"
-              onClick={closeModal}
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <h3 className="text-lg font-bold mb-2">{selectedEvent.name}</h3>
-            <p className="text-sm mb-1">
-              <strong>From:</strong>{" "}
-              {format(new Date(selectedEvent.from), "PPpp")}
-            </p>
-            <p className="text-sm mb-1">
-              <strong>To:</strong> {format(new Date(selectedEvent.to), "PPpp")}
-            </p>
-            <p className="text-sm">
-              <strong>Created At:</strong>{" "}
-              {format(new Date(selectedEvent.createdAt), "PPpp")}
-            </p>
-          </div>
-        </div>
-      )}
+          <h3 className="text-lg font-bold mb-2">{selectedEvent?.name}</h3>
+          <p className="text-sm mb-1">
+            <strong>From:</strong>{" "}
+            {selectedEvent?.from
+              ? format(new Date(selectedEvent.from), "PPpp")
+              : "N/A"}
+          </p>
+          <p className="text-sm mb-1">
+            <strong>To:</strong>{" "}
+            {selectedEvent?.to
+              ? format(new Date(selectedEvent.to), "PPpp")
+              : "N/A"}
+          </p>
+          <p className="text-sm">
+            <strong>Created At:</strong>{" "}
+            {selectedEvent?.createdAt
+              ? format(new Date(selectedEvent.createdAt), "PPpp")
+              : "N/A"}
+          </p>
+        </DialogContent>
+      </Dialog>
 
       {/* Header */}
       <div className="grid grid-cols-[56px_repeat(7,1fr)] text-sm font-medium">
@@ -366,7 +423,7 @@ export default function Calendar() {
                         width: `${event.width}%`,
                         zIndex: event.zIndex,
                       }}
-                      onClick={() => handleEventClick(event)}
+                      onClick={(e) => handleEventClick(event, e.currentTarget)}
                     >
                       <div
                         className="text-xs text-white p-1 rounded-md shadow-md h-full overflow-hidden flex items-start gap-1 border border-white/20 shadow-lg"
